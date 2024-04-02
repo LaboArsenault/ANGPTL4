@@ -286,12 +286,13 @@ dev.off()
 #####Concordance with LPL enhancement######
 res_tg_sd <- fread("Data/Modified/res_tg_sd.txt")
 res_tg_sd[, hgnc:= "E40K"]
-dt_pan <- fread( "Data/Modified/res_multicis_independent.txt")
+res_multicis <- fread( "Data/Modified/res_multicis_independent.txt")
+dt_pan <- res_multicis[grepl("trait-16-4", id.exposure) & method == "Inverse variance weighted", ]
 k1<- separate(dt_pan[grepl("trait-16-4", id.exposure), ], col = "id.exposure", into = c("hgnc", "id.exposure"), sep = "_", remove = TRUE)
 k1 <- rbind(k1, res_tg_sd, fill = TRUE)
 scatter <- dcast(k1[method%in%c("Inverse variance weighted",  "Wald ratio") & !grepl("dis-15-", id.outcome),], id.outcome ~ hgnc, value.var = c("b", "se"))
 colnom<-colnames(scatter)[grepl("^b_", colnames(scatter))]
-cor(scatter[,.SD,.SDcols = colnom], method = c("pearson"))
+cor(scatter[,.SD,.SDcols = colnom], method = c("pearson"), use="complete.obs")
 scatter <- merge(scatter, distinct(dt), by.x = "id.outcome", by.y = "nom")
 data.scatter <- data.table(scatter)
 
