@@ -54,7 +54,7 @@ k <- TwoSampleMR::harmonise_ld_dat(x =dat, ld = LD_matrix)
 cophescan_input <- from_tsmr_to_cophescan_input(k$x)
 cophescan_input$N<-mean(cophescan_input$N) ##This line is necessary otherwise there will be complex bug further down the pipeline
 cophescan_input$LD <- k$ld
-if(!("rs116843064" %in% cophescan_input$snp)){return(data.table())} 
+if(!("rs116843064" %in% cophescan_input$snp) | is.na(cophescan_input$N)){return(data.table())} 
 res.susie <- cophescan::cophe.susie(cophescan_input, querysnpid = "rs116843064", querytrait=dat$id.exposure[1])
 
 return(summary(res.susie))
