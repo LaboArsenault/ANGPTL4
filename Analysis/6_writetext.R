@@ -29,6 +29,7 @@ k1 <- rbind(k1, res_tg_sd, fill = TRUE)
 scatter <- dcast(k1[method%in%c("Inverse variance weighted",  "Wald ratio") & !grepl("dis-15-", id.outcome),], id.outcome ~ hgnc, value.var = c("b", "se"))
 res_cophescan <- fread("Data/Modified/res_cophescan_hyperpriors.txt")
 res_hyprcoloc <-fread("Data/Modified/res_hyprcoloc.txt")
+inst <- fread("Data/Modified/inst.txt")
 # inst_tgsd <- fread("Data/Modified/inst_tgsd.txt")
 ######
 return_format_data<-function(data) {
@@ -123,6 +124,7 @@ return(res)
 return_format_fstat(res_rsq_fstat)
 cor(scatter$b_E40K, scatter$b_LPL, use="complete.obs", method = "pearson")
 cor(scatter$b_E40K, scatter$b_LIPC, use="complete.obs", method = "pearson")
+cor(scatter$b_E40K, scatter$b_ANGPTL4, use="complete.obs", method = "pearson")
 ### Discussion ####
 #para 3
 (pearson_cor <- cor(scatter$b_E40K, scatter$b_LPL, use="complete.obs", method = "pearson"))
@@ -151,6 +153,8 @@ cox_data[!is.na(PCA1), .N]
 cadd_loff[rsid=="rs116843064", cadd_score]
 res_logit_tg[term == cadd_loff[rsid=="rs116843064",lof_name], p.value]
 
+#para 3
+# see variants in 1d_cophescan. to know the number of variant  
 #lof mutation para 4
 colnom_date <- colnames(cox_data)[grepl("_date$", colnames(cox_data))]
 date_end_followup <- cox_data[, lapply(.SD, function(x) max(x, na.rm = TRUE)), .SDcols = colnom_date]
