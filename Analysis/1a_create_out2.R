@@ -2,6 +2,12 @@
 setwd("/home/gagelo01/workspace/Projects/small_MR_exploration/Test_potential_project/ANGPTL4")
 source("Analysis/tosource.R")
 
+
+cmd1<-paste0("head -n 1 ", "Data/Modified/Outcomes/bin1.txt > Data/Modified/all_outcome.txt")
+cmd2 <- paste0("tail -n +2 -q Data/Modified/Outcomes/bin* >> ", "Data/Modified/all_outcome.txt")
+system(paste0(cmd1, ";", cmd2))
+
+
 #####create out#####
 out_server <- c(df_index[grepl("dis-15-", id)&ncase>1000, paste0("/mnt/sda/gagelo01/Vcffile/Server_vcf/", id, "/", id, ".vcf.gz")], out_server)
 all_outcome <- fread("Data/Modified/all_outcome.txt")
