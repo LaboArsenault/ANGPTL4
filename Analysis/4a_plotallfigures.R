@@ -14,6 +14,7 @@ wd<-"/mnt/sda/gagelo01/Projects/small_MR_exploration/Test_potential_project/ANGP
 setwd(wd)
 
 all_outcome <- fread("Data/Modified/all_outcome.txt" )
+all_outcome <- all_outcome %>% unique
 df_index <- fread("/mnt/sda/gagelo01/Vcffile/server_gwas_id.txt")
 
 ####align on the good reference allele

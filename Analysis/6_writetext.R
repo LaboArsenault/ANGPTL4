@@ -7,10 +7,11 @@ setwd(wd)
 source("Analysis/tosource.R")
 
 all_outcome <- fread("Data/Modified/all_outcome.txt" )
+all_outcome<-unique(all_outcome)
 df_index <- fread("/mnt/sda/gagelo01/Vcffile/server_gwas_id.txt")
 
 #####
-k <- all_outcome[id.outcome == "trait-16-4", ] %>% GagnonMR::convert_outcome_to_exposure(.)
+k <- all_outcome[id.outcome == "trait-16-4"&SNP%in%"rs116843064", ] %>% GagnonMR::convert_outcome_to_exposure(.)
 harm <- TwoSampleMR::harmonise_data(k, all_outcome)
 tosel <- colnames(harm)[!grepl("exposure", colnames(harm))]
 data_res <- harm[,tosel] %>% as.data.table(.)
@@ -26,11 +27,17 @@ res_tg_sd[, hgnc:= "E40K"]
 dt_pan <- fread( "Data/Modified/res_multicis_independent.txt")
 k1<- separate(dt_pan[grepl("trait-16-4", id.exposure), ], col = "id.exposure", into = c("hgnc", "id.exposure"), sep = "_", remove = TRUE)
 k1 <- rbind(k1, res_tg_sd, fill = TRUE)
-scatter <- dcast(k1[method%in%c("Inverse variance weighted",  "Wald ratio") & !grepl("dis-15-", id.outcome),], id.outcome ~ hgnc, value.var = c("b", "se"))
+k1<-k1[method%in%c("Inverse variance weighted",  "Wald ratio") & !grepl("dis-15-", id.outcome),]
+scatter <- dcast(k1, id.outcome ~ hgnc, value.var = c("b", "se"))
 res_cophescan <- fread("Data/Modified/res_cophescan_hyperpriors.txt")
 res_hyprcoloc <-fread("Data/Modified/res_hyprcoloc.txt")
 inst <- fread("Data/Modified/inst.txt")
-# inst_tgsd <- fread("Data/Modified/inst_tgsd.txt")
+inst_FandQ <- map(split(inst, inst$id.exposure), function(x) {
+  x<-TwoSampleMR::add_rsq(x) %>%  as.data.table(.)
+  res <- data.table(id.exposure = x$id.exposure[1], rsq = x$rsq %>% sum, fstat = GagnonMR::fstat_fromdat(list(x)), N = x[,.N])
+  return(res)
+}) %>% rbindlist(., fill = TRUE)
+
 ######
 return_format_data<-function(data) {
   k <- data[, paste0("OR = ", format(round(exp(beta.outcome), digits = 2), nsmall = 2), ", 95% CI=", format(round(exp(lci.outcome), digits = 2), nsmall = 2), " to ",  format(round(exp(uci.outcome), digits = 2), nsmall = 2), ", p=",pval.outcome %>% formatC(., format = "e", digits = 1))]
@@ -51,7 +58,7 @@ return_format_data_noexp_HR <-function(data) {
 
 return_format_fstat <-function(data) {
 k <- data[, paste0(N, " SNPs (r2 = ", round(rsq*100, digits =2), "%; F-statistics = ",  round(fstat, digits = 0), ")")]
-names(k) <- data$hgnc
+names(k) <- data$id.exposure
 return(k)
   }
 
@@ -66,7 +73,7 @@ data_res[!(grepl("dis-15-", id.outcome)), length(unique(id.outcome))]
 data_res[(grepl("dis-15-", id.outcome)), length(unique(id.outcome))]
 df_index[grepl("dis-15-", id), max(as.numeric(sample_size))]
 k <- data_res[!(grepl("dis-15-", id.outcome)) & pval.outcome < 0.05/1589, ]
-data_res[SNP == "rs116843064" & id.outcome %in% c("dis-13-1", "dis-19-1", "dis-23-2"), ] %>% return_format_data
+data_res[SNP == "rs116843064" & id.outcome %in% c("dis-13-1", "dis-19-1", "dis-23-2"), ] %>% unique %>% return_format_data
 data_res[(grepl("dis-15-", id.outcome)) & pval.outcome < 0.005 & beta.outcome > 0,]
 data_res[(grepl("dis-15-", id.outcome)) & pval.outcome < 0.05/1589 & beta.outcome < 0,]
 (pearson_cor <- cor(scatter$b_E40K, scatter$b_LPL, use="complete.obs", method = "pearson"))
@@ -79,7 +86,19 @@ data_res[!(grepl("dis-15-", id.outcome)), id.outcome %>% unique %>% length]
 data_res[SNP == "rs116843064" & id.outcome %in% c("dis-13-1", "dis-19-1", "dis-23-2"), ] %>% return_format_data
 data_res[SNP == "rs116843064" & id.outcome %in% c("trait-7-2"), ]
 data_res[SNP == "rs116843064" & !grepl("dis-15-", id.outcome) & grepl("dis-", id.outcome) & pval.outcome < 0.05 & beta.outcome > 0]
+
 #para3
+inst_FandQ[id.exposure == "ANGPTL4_trait-16-4", ] %>% return()
+inst[id.exposure == "ANGPTL4_trait-16-4", ]
+df_VEP <- fread("Data/Modified/df_VEP.txt")
+colnom<-c("chrom", "pos")
+df_VEP[, (colnom) := tstrsplit(Uploaded_variation, ":", fixed = TRUE) ]
+df_VEP[, (colnom) := lapply(.SD, as.integer), .SDcols = colnom]
+df_VEP <- merge(df_VEP, unique(inst[,.(chr.exposure, pos.exposure, SNP)]), by.x = c("chrom", "pos"), by.y = c("chr.exposure", "pos.exposure"))
+altering_variant <- intersect(inst[id.exposure == "ANGPTL4_trait-16-4", ]$SNP, df_VEP[is_altering_variant==TRUE, unique(SNP)])
+altering_variant
+
+#para4
 cox_data[toinclude==1&E40K_carrier!=TRUE, sum(has_lof)]
 cox_data[toinclude==1, sum(has_lof)]
 # IV <- "has_lof"
@@ -99,34 +118,23 @@ cox_res[exposure=="has_lofTRUE" & outcome == "CAD" & include_E40K_ascarrier==FAL
 cox_res[exposure=="has_lofTRUE" & outcome == "AS" & include_E40K_ascarrier==FALSE] %>% return_format_data_noexp_HR
 cox_data[AS_toinclude==1 & AS_censored == 1,has_lof] %>% summary_logical
 
-###para 4
+###para 5
 res_cophescan[querytrait%in% c("dis-13-1", "dis-19-1", "dis-23-2", "trait-16-4", "trait-16-1"), ]
 res_hyprcoloc$regional_prob
 res_hyprcoloc$posterior_explained_by_snp
-##### Para 5 #####
+##### Para 6 #####
+data_res[id.outcome=="dis-15-1477", ] %>% return_format_data()
 data_res[grepl("dis-15-", id.outcome) & SNP == "rs116843064" & beta.outcome > 0 & pval.outcome<0.005, ]
 # Association with lymphadenitis?
 data_res[grepl("lymphade|ascite|periton", tolower(clean_variable_name)) & pval.outcome < 0.05, ] #lymphadenopathy, ascites, and peritonitis
-k<-data_res[grepl("dis-15-", id.outcome) & grepl("steno", tolower(clean_variable_name)) & clean_variable_name == "Calcific aortic valvular stenosis" & pval.outcome < 0.05, ] #lymphadenopathy, ascites, and peritonitis
-k%>%return_format_data
 
-####para 6####
-inst_tgsd <-  inst[grepl("trait-16-4", id.exposure), ] %>% TwoSampleMR::add_rsq()
-setDT(inst_tgsd)
-res_rsq_fstat <- map(unique(inst_tgsd$id.exposure), function(x) {
-k <- inst_tgsd[id.exposure==x, ]
-res<-data.table(id.exposure=x)
-res$fstat<-GagnonMR::fstat_fromdat(list(k))
-res$rsq <- sum(k$rsq.exposure)
-res$N <- k[,.N]
-return(res)
-}) %>% rbindlist
-return_format_fstat(res_rsq_fstat)
+####para 7####
+return_format_fstat(inst_FandQ)
 cor(scatter$b_E40K, scatter$b_LPL, use="complete.obs", method = "pearson")
 cor(scatter$b_E40K, scatter$b_LIPC, use="complete.obs", method = "pearson")
 cor(scatter$b_E40K, scatter$b_ANGPTL4, use="complete.obs", method = "pearson")
 ### Discussion ####
-#para 3
+#para 4
 (pearson_cor <- cor(scatter$b_E40K, scatter$b_LPL, use="complete.obs", method = "pearson"))
 
 # para 5
